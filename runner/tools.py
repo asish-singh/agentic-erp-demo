@@ -6,8 +6,60 @@ or dry-run stub) and returns a JSON-serializable result.
 
 from __future__ import annotations
 
+import json
 from dataclasses import asdict
 from typing import Any
+
+MAX_RECORDS = 10
+MAX_SERIALIZED_CHARS = 2500
+
+
+def _strip_for_model(value: Any) -> Any:
+    """Recursively drops OData `__metadata` keys and null valued fields so
+    the model-facing copy of a response is much smaller than the raw SAP
+    payload. The full, untouched response is still logged separately."""
+    if isinstance(value, dict):
+        cleaned = {}
+        for key, val in value.items():
+            if key == "__metadata":
+                continue
+            if val is None:
+                continue
+            cleaned[key] = _strip_for_model(val)
+        return cleaned
+    if isinstance(value, list):
+        return [_strip_for_model(item) for item in value]
+    return value
+
+
+def _trim_result_for_model(result: dict) -> dict:
+    """Builds the trimmed, model-facing copy of a tool result: strips
+    __metadata and nulls, caps result lists at MAX_RECORDS, and hard-caps the
+    serialized size with a truncation note. Does not mutate the input, so
+    the original (full) result can still be logged in full."""
+    trimmed = _strip_for_model(result)
+
+    body = trimmed.get("body") if isinstance(trimmed, dict) else None
+    if isinstance(body, dict):
+        d = body.get("d")
+        results = d.get("results") if isinstance(d, dict) else None
+        if isinstance(results, list) and len(results) > MAX_RECORDS:
+            dropped = len(results) - MAX_RECORDS
+            d["results"] = results[:MAX_RECORDS]
+            d[f"_truncation_note"] = f"[truncated, {dropped} more records]"
+
+    serialized = json.dumps(trimmed, default=str)
+    if len(serialized) > MAX_SERIALIZED_CHARS:
+        cut = serialized[: MAX_SERIALIZED_CHARS - 200]
+        # Return a minimal, valid-JSON-ish dict rather than broken JSON text.
+        trimmed = {
+            "status_code": trimmed.get("status_code") if isinstance(trimmed, dict) else None,
+            "ok": trimmed.get("ok") if isinstance(trimmed, dict) else None,
+            "truncated": True,
+            "note": "[truncated, response exceeded ~2500 characters, further records omitted]",
+            "partial_body_preview": cut,
+        }
+    return trimmed
 
 TOOL_SCHEMAS = [
     {
@@ -122,3 +174,12 @@ def dispatch_tool_call(sap_client, name: str, arguments: dict) -> dict[str, Any]
         return {"acknowledged": True}
 
     return {"error": f"Unknown tool: {name}"}
+
+
+def trim_tool_result_for_model(result: dict) -> dict:
+    """Public entry point: returns a trimmed, model-facing copy of a tool
+    result. The caller should log the untouched `result` in full and only
+    feed this trimmed copy into the model conversation."""
+    if not isinstance(result, dict):
+        return result
+    return _trim_result_for_model(result)

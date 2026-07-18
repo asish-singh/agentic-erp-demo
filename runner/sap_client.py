@@ -23,7 +23,7 @@ import requests
 SAP_BASE_URL = "https://sandbox.api.sap.com/s4hanacloud/sap/opu/odata/sap"
 
 SERVICES = {
-    "API_BUSINESS_PARTNER": "A_BusinessPartner",
+    "API_BUSINESS_PARTNER": "A_Supplier",
     "API_PURCHASEORDER_PROCESS_SRV": "A_PurchaseOrder",
     "API_SUPPLIERINVOICE_PROCESS_SRV": "A_SupplierInvoice",
     "API_PRODUCT_SRV": "A_Product",

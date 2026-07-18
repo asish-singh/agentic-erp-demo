@@ -14,11 +14,18 @@ import os
 
 from openai import OpenAI
 
-from runner.tools import TOOL_SCHEMAS, dispatch_tool_call
+from runner.tools import TOOL_SCHEMAS, dispatch_tool_call, trim_tool_result_for_model
 
 GITHUB_MODELS_BASE_URL = "https://models.github.ai/inference"
 DEFAULT_MODEL = "openai/gpt-4o-mini"
 DEFAULT_MAX_TURNS = 15
+
+# Rough token estimate (4 chars/token) and the budget we keep the
+# conversation under before trimming older tool results.
+CHARS_PER_TOKEN_ESTIMATE = 4
+MAX_CONVERSATION_TOKENS_ESTIMATE = 6000
+MAX_CONVERSATION_CHARS_ESTIMATE = MAX_CONVERSATION_TOKENS_ESTIMATE * CHARS_PER_TOKEN_ESTIMATE
+KEPT_RECENT_EXCHANGES = 4  # an "exchange" is one assistant turn + its tool results
 
 SYSTEM_PROMPT = """You are an ERP operations agent. You complete SAP business
 process tasks by calling the tools provided: odata_get, odata_post,
@@ -33,6 +40,18 @@ Rules:
 - If you are stuck after a reasonable number of attempts, call finish with
   outcome gave_up rather than repeating the same call.
 - Be concise. Do not narrate every step in prose, just call tools and finish.
+
+OData guidance for this sandbox (SAP OData v2 services):
+- Always pass $top (e.g. 5 or 10) and $select on odata_get to keep responses
+  small. Never fetch a full entity set unfiltered.
+- These are OData v2 services: use substringof('x', Field) for partial text
+  matches, not contains(Field, 'x'). contains() is OData v4 syntax and will
+  be rejected here.
+- Entity and property names must come from the real service metadata, not
+  guessed from other SAP modules. Guessing is fine as a starting point, but
+  when a call errors with "not found", treat that as a signal to look up
+  the actual entity set (e.g. via list_available_services or a metadata
+  call) rather than repeating similar guesses.
 """
 
 
@@ -177,13 +196,20 @@ class AgentRun:
                         }
                     )
 
+                model_facing_result = (
+                    result
+                    if name == "finish"
+                    else trim_tool_result_for_model(result)
+                )
                 messages.append(
                     {
                         "role": "tool",
                         "tool_call_id": tool_call.id,
-                        "content": json.dumps(result, default=str),
+                        "content": json.dumps(model_facing_result, default=str),
                     }
                 )
+
+            self._trim_conversation_if_too_large(messages)
 
             if finished:
                 break
@@ -205,6 +231,29 @@ class AgentRun:
         }
         self.logger.write({"event": "task_end", **summary})
         return summary
+
+    @staticmethod
+    def _trim_conversation_if_too_large(messages: list) -> None:
+        """If the estimated conversation size exceeds the token budget,
+        replace the content of older tool results with "[trimmed]",
+        keeping the system prompt (index 0), the original instruction
+        (index 1), and the last KEPT_RECENT_EXCHANGES assistant turns
+        (and everything from that point forward) intact."""
+        total_chars = sum(len(str(m.get("content") or "")) for m in messages)
+        if total_chars <= MAX_CONVERSATION_CHARS_ESTIMATE:
+            return
+
+        assistant_indices = [i for i, m in enumerate(messages) if m.get("role") == "assistant"]
+        if len(assistant_indices) <= KEPT_RECENT_EXCHANGES:
+            return  # nothing old enough to trim
+
+        keep_from = assistant_indices[-KEPT_RECENT_EXCHANGES]
+
+        for i, message in enumerate(messages):
+            if i in (0, 1) or i >= keep_from:
+                continue
+            if message.get("role") == "tool" and message.get("content") != "[trimmed]":
+                message["content"] = "[trimmed]"
 
     @staticmethod
     def _classify_error(result: dict) -> str:

@@ -1,45 +1,59 @@
 # Five business process tasks the agent attempts against the SAP sandbox.
 # Written as instructions a real requester would give, not API calls.
+# Reference data verified live against the SAP Business Accelerator Hub
+# sandbox on 2026-07-18: supplier 1000033 "Capital Fasteners Inc" exists in
+# A_Supplier; purchase orders exist starting at 4500000001 for supplier
+# 17300001, company code 1710, currency USD.
 
 tasks:
-  - id: find_supplier_payment_terms
+  - id: find_supplier_capital_fasteners
     instruction: >
-      Find the business partner named "Acme Robotics Supply" in the supplier
-      master data and report their payment terms.
+      Find the supplier named "Capital Fasteners Inc" in the supplier master
+      data and report their supplier number and supplier account group.
     success_criteria: >
-      The agent reports a payment terms code or description for the correct
-      business partner, sourced from an actual odata_get call.
+      The agent reports supplier number 1000033 and the correct
+      SupplierAccountGroup for Capital Fasteners Inc, sourced from an actual
+      odata_get call against A_Supplier.
 
-  - id: list_open_purchase_orders_over_amount
+  - id: list_purchase_orders_for_supplier
     instruction: >
-      List purchase orders with a net order value over 10000 and report their
-      purchase order numbers and amounts.
+      List 5 purchase orders for supplier 17300001 in company code 1710 and
+      report their document currencies.
     success_criteria: >
-      The agent returns at least one purchase order number with an amount
-      above the threshold, sourced from an actual odata_get call with a
-      filter on order value.
+      The agent returns at least one purchase order number for supplier
+      17300001 in company code 1710 with its document currency, sourced from
+      an actual odata_get call. USD is the expected currency in this sandbox.
 
   - id: create_purchase_order
     instruction: >
-      Create a new purchase order for product TG-2100 from supplier
-      "Acme Robotics Supply" for a quantity of 10 units.
+      Create a new purchase order for supplier 17300001, company code 1710.
     success_criteria: >
-      The agent successfully posts a new purchase order (a 2xx response with
-      a purchase order number) or clearly reports why the create was
-      rejected, including the CSRF token handshake if relevant.
+      Honestly, this is expected to be hard: the sandbox purchase order
+      create API typically requires header and item data (plant, purchasing
+      organization, purchasing group, material or short text, quantity) that
+      is not obvious from a one-line instruction. Success means either a 2xx
+      response with a purchase order number, or the agent clearly reporting
+      which required field caused the rejection, including whether the CSRF
+      token handshake worked. A "gave_up" with a clear, specific reason is an
+      honest and acceptable outcome for this task.
 
-  - id: summarize_supplier_invoice_status
+  - id: summarize_supplier_invoices
     instruction: >
-      Retrieve supplier invoice 5105600001 and summarize its current status
-      and gross amount.
+      Fetch supplier invoice data from the sandbox and summarize what
+      invoices exist, including how many you found and any status or amount
+      fields available.
     success_criteria: >
-      The agent reports the invoice status and gross amount for the correct
-      invoice, sourced from an actual odata_get call.
+      The agent reports at least one real supplier invoice number with
+      whatever status or amount fields the sandbox actually returns, sourced
+      from an actual odata_get call against A_SupplierInvoice. It should not
+      invent an invoice number that was never returned by the API.
 
-  - id: cross_reference_product_and_supplier
+  - id: find_product_base_unit
     instruction: >
-      Look up product TG-2100 and report which supplier provides it, then
-      look up that supplier's details.
+      Find a product in the product master data and report its base unit of
+      measure and product type.
     success_criteria: >
-      The agent correctly chains two lookups, product to supplier, and
-      reports both the product description and the supplier name.
+      The agent reports a real product number with its base unit (e.g. EA,
+      KG) and product type, sourced from an actual odata_get call against
+      A_Product. Honest success does not require a specific product, just a
+      real one returned by the API.

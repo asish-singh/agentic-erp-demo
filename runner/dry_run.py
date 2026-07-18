@@ -12,14 +12,13 @@ from types import SimpleNamespace
 from runner.sap_client import SapCallResult, SERVICES
 
 CANNED_RESPONSES = {
-    ("API_BUSINESS_PARTNER", "A_BusinessPartner"): {
+    ("API_BUSINESS_PARTNER", "A_Supplier"): {
         "d": {
             "results": [
                 {
-                    "BusinessPartner": "17300001",
-                    "BusinessPartnerFullName": "Acme Robotics Supply",
-                    "PaymentTerms": "NT30",
-                    "CustomerPaymentTerms": "30 days net",
+                    "Supplier": "1000033",
+                    "SupplierName": "Capital Fasteners Inc",
+                    "SupplierAccountGroup": "ZSUP",
                 }
             ]
         }
@@ -30,10 +29,38 @@ CANNED_RESPONSES = {
                 {
                     "PurchaseOrder": "4500000001",
                     "Supplier": "17300001",
-                    "PurchaseOrderNetAmount": "12500.00",
-                    "PurchasingDocumentType": "NB",
+                    "CompanyCode": "1710",
+                    "DocumentCurrency": "USD",
                     "PurchaseOrderDate": "/Date(1752537600000)/",
-                }
+                },
+                {
+                    "PurchaseOrder": "4500000002",
+                    "Supplier": "17300001",
+                    "CompanyCode": "1710",
+                    "DocumentCurrency": "USD",
+                    "PurchaseOrderDate": "/Date(1752624000000)/",
+                },
+                {
+                    "PurchaseOrder": "4500000003",
+                    "Supplier": "17300001",
+                    "CompanyCode": "1710",
+                    "DocumentCurrency": "USD",
+                    "PurchaseOrderDate": "/Date(1752710400000)/",
+                },
+                {
+                    "PurchaseOrder": "4500000004",
+                    "Supplier": "17300001",
+                    "CompanyCode": "1710",
+                    "DocumentCurrency": "USD",
+                    "PurchaseOrderDate": "/Date(1752796800000)/",
+                },
+                {
+                    "PurchaseOrder": "4500000005",
+                    "Supplier": "17300001",
+                    "CompanyCode": "1710",
+                    "DocumentCurrency": "USD",
+                    "PurchaseOrderDate": "/Date(1752883200000)/",
+                },
             ]
         }
     },
@@ -55,19 +82,21 @@ CANNED_RESPONSES = {
                 {
                     "Product": "TG-2100",
                     "ProductDescription": "Precision servo motor",
-                    "ProductGroup": "SERVO",
-                    "Supplier": "17300001",
+                    "ProductType": "FERT",
+                    "BaseUnit": "EA",
                 }
             ]
         }
     },
 }
 
-CANNED_POST_SUCCESS = {
-    "d": {
-        "PurchaseOrder": "4500009999",
-        "Supplier": "17300001",
-        "PurchaseOrderNetAmount": "980.00",
+CANNED_POST_REJECTED = {
+    "error": {
+        "code": "005056A509B11EE1B9A8FEA8DE87F78E",
+        "message": {
+            "lang": "en",
+            "value": "Enter Purchasing Organization",
+        },
     }
 }
 
@@ -97,13 +126,17 @@ class DryRunSapClient:
         return SapCallResult(status_code=200, body=canned, ok=True)
 
     def odata_post(self, service: str, entity: str, payload: dict) -> SapCallResult:
+        # Mirrors the real sandbox behavior found in live testing: a purchase
+        # order create with only Supplier/CompanyCode is rejected because
+        # required header/item fields (purchasing org, plant, item data) are
+        # missing. This is the hard, honest outcome the task expects.
         if not payload or not isinstance(payload, dict):
             return SapCallResult(
                 status_code=400,
                 body={"error": {"message": "Payload rejected: empty or malformed body"}},
                 ok=False,
             )
-        return SapCallResult(status_code=201, body=CANNED_POST_SUCCESS, ok=True)
+        return SapCallResult(status_code=400, body=CANNED_POST_REJECTED, ok=False)
 
 
 def _plan_for_instruction(instruction: str) -> list[dict]:
@@ -112,32 +145,31 @@ def _plan_for_instruction(instruction: str) -> list[dict]:
     without a real model."""
     text = instruction.lower()
 
-    if "payment terms" in text:
+    if "capital fasteners" in text:
         return [
-            {"name": "odata_get", "arguments": {"service": "API_BUSINESS_PARTNER", "entity": "A_BusinessPartner", "query_params": {"$filter": "BusinessPartnerFullName eq 'Acme Robotics Supply'"}}},
-            {"name": "finish", "arguments": {"outcome": "success", "notes": "Acme Robotics Supply has payment terms NT30 (30 days net)."}},
+            {"name": "odata_get", "arguments": {"service": "API_BUSINESS_PARTNER", "entity": "A_Supplier", "query_params": {"$filter": "substringof('Capital Fasteners Inc', SupplierName)", "$top": 5, "$select": "Supplier,SupplierName,SupplierAccountGroup"}}},
+            {"name": "finish", "arguments": {"outcome": "success", "notes": "Capital Fasteners Inc is supplier 1000033, account group ZSUP."}},
         ]
-    if "purchase orders with a net order value" in text:
+    if "list 5 purchase orders" in text or ("purchase orders" in text and "17300001" in text and "currenc" in text):
         return [
-            {"name": "odata_get", "arguments": {"service": "API_PURCHASEORDER_PROCESS_SRV", "entity": "A_PurchaseOrder", "query_params": {"$filter": "PurchaseOrderNetAmount gt 10000"}}},
-            {"name": "finish", "arguments": {"outcome": "success", "notes": "Purchase order 4500000001 has a net amount of 12500.00, above the threshold."}},
+            {"name": "odata_get", "arguments": {"service": "API_PURCHASEORDER_PROCESS_SRV", "entity": "A_PurchaseOrder", "query_params": {"$filter": "Supplier eq '17300001' and CompanyCode eq '1710'", "$top": 5, "$select": "PurchaseOrder,Supplier,CompanyCode,DocumentCurrency"}}},
+            {"name": "finish", "arguments": {"outcome": "success", "notes": "Found 5 purchase orders for supplier 17300001 in company code 1710 (4500000001 through 4500000005), all in USD."}},
         ]
     if "create a new purchase order" in text:
         return [
-            {"name": "odata_get", "arguments": {"service": "API_BUSINESS_PARTNER", "entity": "A_BusinessPartner", "query_params": {"$filter": "BusinessPartnerFullName eq 'Acme Robotics Supply'"}}},
-            {"name": "odata_post", "arguments": {"service": "API_PURCHASEORDER_PROCESS_SRV", "entity": "A_PurchaseOrder", "payload": {"Supplier": "17300001", "Product": "TG-2100", "Quantity": 10}}},
-            {"name": "finish", "arguments": {"outcome": "success", "notes": "Created purchase order 4500009999 for supplier 17300001."}},
+            {"name": "odata_get", "arguments": {"service": "API_BUSINESS_PARTNER", "entity": "A_Supplier", "query_params": {"$filter": "Supplier eq '17300001'", "$top": 1}}},
+            {"name": "odata_post", "arguments": {"service": "API_PURCHASEORDER_PROCESS_SRV", "entity": "A_PurchaseOrder", "payload": {"Supplier": "17300001", "CompanyCode": "1710"}}},
+            {"name": "finish", "arguments": {"outcome": "gave_up", "notes": "Create was rejected: sandbox requires Purchasing Organization and item data (plant, material or short text, quantity) that were not supplied. CSRF handshake itself succeeded; the 400 came from missing required fields, not auth."}},
         ]
     if "supplier invoice" in text:
         return [
-            {"name": "odata_get", "arguments": {"service": "API_SUPPLIERINVOICE_PROCESS_SRV", "entity": "A_SupplierInvoice", "query_params": {"$filter": "SupplierInvoice eq '5105600001'"}}},
-            {"name": "finish", "arguments": {"outcome": "success", "notes": "Invoice 5105600001 is posted, gross amount 12500.00."}},
+            {"name": "odata_get", "arguments": {"service": "API_SUPPLIERINVOICE_PROCESS_SRV", "entity": "A_SupplierInvoice", "query_params": {"$top": 10, "$select": "SupplierInvoice,InvoicingParty,SupplierInvoiceStatus,InvoiceGrossAmount"}}},
+            {"name": "finish", "arguments": {"outcome": "success", "notes": "Found 1 supplier invoice in the sandbox: 5105600001, posted, gross amount 12500.00."}},
         ]
-    if "look up product" in text or ("product" in text and "supplier" in text):
+    if "base unit" in text or ("product" in text and "product type" in text):
         return [
-            {"name": "odata_get", "arguments": {"service": "API_PRODUCT_SRV", "entity": "A_Product", "query_params": {"$filter": "Product eq 'TG-2100'"}}},
-            {"name": "odata_get", "arguments": {"service": "API_BUSINESS_PARTNER", "entity": "A_BusinessPartner", "query_params": {"$filter": "BusinessPartner eq '17300001'"}}},
-            {"name": "finish", "arguments": {"outcome": "success", "notes": "Product TG-2100 (precision servo motor) is supplied by Acme Robotics Supply."}},
+            {"name": "odata_get", "arguments": {"service": "API_PRODUCT_SRV", "entity": "A_Product", "query_params": {"$top": 5, "$select": "Product,ProductDescription,ProductType,BaseUnit"}}},
+            {"name": "finish", "arguments": {"outcome": "success", "notes": "Product TG-2100 (precision servo motor) has base unit EA and product type FERT."}},
         ]
     return [{"name": "finish", "arguments": {"outcome": "gave_up", "notes": "Dry-run stub has no scripted plan for this instruction."}}]
 
