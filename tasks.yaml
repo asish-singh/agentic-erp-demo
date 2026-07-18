@@ -1,0 +1,45 @@
+# Five business process tasks the agent attempts against the SAP sandbox.
+# Written as instructions a real requester would give, not API calls.
+
+tasks:
+  - id: find_supplier_payment_terms
+    instruction: >
+      Find the business partner named "Acme Robotics Supply" in the supplier
+      master data and report their payment terms.
+    success_criteria: >
+      The agent reports a payment terms code or description for the correct
+      business partner, sourced from an actual odata_get call.
+
+  - id: list_open_purchase_orders_over_amount
+    instruction: >
+      List purchase orders with a net order value over 10000 and report their
+      purchase order numbers and amounts.
+    success_criteria: >
+      The agent returns at least one purchase order number with an amount
+      above the threshold, sourced from an actual odata_get call with a
+      filter on order value.
+
+  - id: create_purchase_order
+    instruction: >
+      Create a new purchase order for product TG-2100 from supplier
+      "Acme Robotics Supply" for a quantity of 10 units.
+    success_criteria: >
+      The agent successfully posts a new purchase order (a 2xx response with
+      a purchase order number) or clearly reports why the create was
+      rejected, including the CSRF token handshake if relevant.
+
+  - id: summarize_supplier_invoice_status
+    instruction: >
+      Retrieve supplier invoice 5105600001 and summarize its current status
+      and gross amount.
+    success_criteria: >
+      The agent reports the invoice status and gross amount for the correct
+      invoice, sourced from an actual odata_get call.
+
+  - id: cross_reference_product_and_supplier
+    instruction: >
+      Look up product TG-2100 and report which supplier provides it, then
+      look up that supplier's details.
+    success_criteria: >
+      The agent correctly chains two lookups, product to supplier, and
+      reports both the product description and the supplier name.
