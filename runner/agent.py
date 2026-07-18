@@ -89,7 +89,7 @@ class AgentRun:
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": task["instruction"]},
         ]
-        self.logger.write({"event": "task_start", "task_id": task["id"], "instruction": task["instruction"]})
+        self.logger.write({"event": "task_start", "task_id": task["id"], "model": self.model, "instruction": task["instruction"]})
 
         turns = 0
         api_calls = 0

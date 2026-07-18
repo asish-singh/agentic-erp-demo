@@ -19,6 +19,9 @@ RUNS_DIR = "runs"
 FINDINGS_DIR = "findings"
 OUTPUT_FILE = os.path.join(FINDINGS_DIR, "results.md")
 
+DEFAULT_MODEL = "openai/gpt-4o-mini"
+LEGACY_TASK_ID = "find_supplier_payment_terms"
+
 
 def load_run(path: str) -> dict | None:
     task_end = None
@@ -37,6 +40,7 @@ def load_run(path: str) -> dict | None:
         return None
     task_end["log_path"] = path
     task_end["instruction"] = task_start.get("instruction") if task_start else ""
+    task_end["model"] = (task_start or {}).get("model") or DEFAULT_MODEL
     return task_end
 
 
@@ -94,6 +98,63 @@ def build_report(runs: list[dict]) -> str:
                 f"| {task_id} | {run['outcome']} | {run['turns']} | "
                 f"{run['api_calls']} | {len(run.get('errors', []))} | {notes} |"
             )
+    lines.append("")
+
+    lines.append("## Results by model")
+    lines.append("")
+    by_model = defaultdict(list)
+    for run in runs:
+        by_model[run["model"]].append(run)
+
+    for model in sorted(by_model):
+        model_runs = by_model[model]
+        m_total = len(model_runs)
+        m_success = sum(1 for r in model_runs if r["outcome"] == "success")
+        m_rate = m_success / m_total * 100
+        m_avg_calls = sum(r["api_calls"] for r in model_runs) / m_total
+        lines.append(f"### {model}")
+        lines.append("")
+        lines.append(
+            f"{m_success} of {m_total} run(s) succeeded ({m_rate:.0f} percent), "
+            f"averaging {m_avg_calls:.1f} SAP API calls per run."
+        )
+        lines.append("")
+        lines.append("| Task | Outcome | Turns | API calls |")
+        lines.append("|---|---|---|---|")
+        for run in sorted(model_runs, key=lambda r: r["task_id"]):
+            lines.append(
+                f"| {run['task_id']} | {run['outcome']} | {run['turns']} | "
+                f"{run['api_calls']} |"
+            )
+        lines.append("")
+
+    lines.append("## Cross model comparison")
+    lines.append("")
+    models_sorted = sorted(by_model)
+    task_ids = sorted(
+        {r["task_id"] for r in runs if r["task_id"] != LEGACY_TASK_ID}
+    )
+    header = "| Task | " + " | ".join(models_sorted) + " |"
+    sep = "|---|" + "|".join(["---"] * len(models_sorted)) + "|"
+    lines.append(header)
+    lines.append(sep)
+    for task_id in task_ids:
+        row = [task_id]
+        for model in models_sorted:
+            match = next(
+                (r for r in by_model[model] if r["task_id"] == task_id), None
+            )
+            if match:
+                row.append(f"{match['outcome']}, {match['api_calls']} calls")
+            else:
+                row.append("not run")
+        lines.append("| " + " | ".join(row) + " |")
+    lines.append("")
+    lines.append(
+        f"Footnote, a legacy run of `{LEGACY_TASK_ID}` (failed, pre fix harness) "
+        "is kept in runs/ for the record but excluded from this table since that "
+        "task no longer exists in the current task set."
+    )
     lines.append("")
 
     lines.append("## Aggregate stats")

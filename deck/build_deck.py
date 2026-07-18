@@ -1,5 +1,5 @@
 """
-Builds agentic-erp-study.pptx, a 10 slide deck presenting the findings of
+Builds agentic-erp-study.pptx, an 11 slide deck presenting the findings of
 STUDY.md and findings/results.md (agentic-erp-demo repo).
 
 Design: clean consultant style, 16:9, white ground, one dark ink color
@@ -190,7 +190,7 @@ def footer(slide, n):
             "Can an AI agent operate an ERP? — July 2026 study", size=9.5,
             color=GREY, font=FONT_BODY)
     textbox(slide, SLIDE_W - MARGIN - Inches(1.5), Inches(7.1), Inches(1.5), Inches(0.3),
-            f"{n:02d} / 10", size=9.5, color=GREY, font=FONT_BODY, align=PP_ALIGN.RIGHT)
+            f"{n:02d} / 11", size=9.5, color=GREY, font=FONT_BODY, align=PP_ALIGN.RIGHT)
 
 
 def stat_block(slide, left, top, width, number, label, number_size=44, label_size=12.5,
@@ -427,7 +427,70 @@ textbox(s, MARGIN, Inches(6.35), Inches(6.8), Inches(0.6),
 footer(s, 5)
 
 # ===========================================================================
-# Slide 6 — Finding 1
+# Slide 6 — Does a smarter brain fix it?
+# ===========================================================================
+s = add_slide()
+set_bg(s)
+kicker_and_title(s, "Model comparison", "Does a smarter brain fix it?")
+
+textbox(s, MARGIN, Inches(1.85), Inches(11.9), Inches(0.6),
+        "The same five tasks, repeated with a frontier model and a strong "
+        "open source model, same harness, same tools, same logging.",
+        size=15, color=INK, font=FONT_BODY, line_spacing=1.25)
+
+table_left6 = MARGIN
+table_top6 = Inches(2.45)
+table_w6 = SLIDE_W - 2 * MARGIN
+
+col0_w = Inches(3.6)
+col_model_w = (table_w6 - col0_w) / 3
+
+headers6 = ["Task", "GPT-4o mini (small)", "GPT-4.1 (frontier)", "Llama 4 Maverick (open)"]
+col_lefts6 = [table_left6, table_left6 + col0_w, table_left6 + col0_w + col_model_w,
+              table_left6 + col0_w + 2 * col_model_w]
+col_widths6 = [col0_w, col_model_w, col_model_w, col_model_w]
+
+hline(s, table_left6, table_top6, table_w6, color=INK, weight=Pt(1.25))
+for i, h in enumerate(headers6):
+    align = PP_ALIGN.LEFT if i == 0 else PP_ALIGN.CENTER
+    textbox(s, col_lefts6[i], table_top6 + Inches(0.08), col_widths6[i], Inches(0.45), h,
+            size=12, color=GREY, bold=True, font=FONT_BODY, align=align, line_spacing=1.05)
+hline(s, table_left6, table_top6 + Inches(0.6), table_w6, color=INK, weight=Pt(1))
+
+rows6 = [
+    ("Find a supplier", "success, 11 calls", "success, 1 call", "gave up, 3 calls"),
+    ("List purchase orders", "success", "success", "success"),
+    ("Create a purchase order", "blocked, 405", "blocked, 405", "blocked, 405"),
+    ("Summarize invoices", "success", "success", "success"),
+    ("Product base unit and type", "success", "success", "success"),
+]
+
+row_h6 = Inches(0.48)
+for r, (task, a, b, c) in enumerate(rows6):
+    top = table_top6 + Inches(0.6) + r * row_h6
+    textbox(s, col_lefts6[0], top + Inches(0.12), col_widths6[0], Inches(0.4), task,
+            size=13, color=INK, font=FONT_BODY)
+    is_blocked = task == "Create a purchase order"
+    is_giveup = "gave up" in b or "gave up" in c
+    for idx, val in enumerate((a, b, c)):
+        cell_color = RED_MUTED if is_blocked else (RED_MUTED if "gave up" in val else INK)
+        textbox(s, col_lefts6[idx + 1], top + Inches(0.12), col_widths6[idx + 1], Inches(0.4),
+                val, size=13, color=cell_color, font=FONT_BODY, align=PP_ALIGN.CENTER)
+    hline(s, table_left6, top + row_h6, table_w6, color=GREY_LINE, weight=Pt(0.6))
+
+strip_top6 = table_top6 + Inches(0.6) + len(rows6) * row_h6 + Inches(0.2)
+strip_h6 = Inches(0.8)
+rounded_rect(s, table_left6, strip_top6, table_w6, strip_h6, fill_color=INK, radius=0.08)
+textbox(s, table_left6 + Inches(0.4), strip_top6, table_w6 - Inches(0.8), strip_h6,
+        "Model quality buys efficiency, not new capability. No model gets through a "
+        "platform policy. All three hit the same 405 wall on the write task.",
+        size=14.5, color=PAPER, italic=True, font=FONT_BODY, line_spacing=1.25,
+        anchor=MSO_ANCHOR.MIDDLE)
+
+footer(s, 6)
+
+# ===========================================================================
+# Slide 7 — Finding 1
 # ===========================================================================
 s = add_slide()
 set_bg(s)
@@ -461,10 +524,10 @@ textbox(s, right_l+Inches(0.4), Inches(4.1), right_w-Inches(0.8), Inches(1.6),
         "already knows it.",
         size=13, color=INK, font=FONT_BODY, line_spacing=1.28)
 
-footer(s, 6)
+footer(s, 7)
 
 # ===========================================================================
-# Slide 7 — Finding 2
+# Slide 8 — Finding 2
 # ===========================================================================
 s = add_slide()
 set_bg(s)
@@ -495,10 +558,10 @@ textbox(s, right_l, Inches(3.85), right_w, Inches(1.9),
         "read only integration, a distinction buyers should press on.",
         size=14, color=INK, font=FONT_BODY, line_spacing=1.32)
 
-footer(s, 7)
+footer(s, 8)
 
 # ===========================================================================
-# Slide 8 — Finding 3
+# Slide 9 — Finding 3
 # ===========================================================================
 s = add_slide()
 set_bg(s)
@@ -543,10 +606,10 @@ textbox(s, right_l, bar2_top + Inches(1.1), right_w, Inches(1.6),
         "real cost and a real failure mode.",
         size=13.5, color=INK, font=FONT_BODY, line_spacing=1.3)
 
-footer(s, 8)
+footer(s, 9)
 
 # ===========================================================================
-# Slide 9 — Finding 4
+# Slide 10 — Finding 4
 # ===========================================================================
 s = add_slide()
 set_bg(s)
@@ -589,10 +652,10 @@ textbox(s, MARGIN, Inches(6.15), Inches(11.9), Inches(0.7),
         "is no longer a developer nicety, it is the interface.",
         size=14, color=GREY, italic=True, font=FONT_BODY, line_spacing=1.3)
 
-footer(s, 9)
+footer(s, 10)
 
 # ===========================================================================
-# Slide 10 — What this means
+# Slide 11 — What this means
 # ===========================================================================
 s = add_slide()
 set_bg(s)
@@ -625,7 +688,7 @@ textbox(s, MARGIN + Inches(0.35), Inches(6.15) + Inches(0.2), Inches(11), Inches
         "github.com/asish-singh/agentic-erp-demo", size=15, color=INK, bold=True,
         font=FONT_BODY, anchor=MSO_ANCHOR.MIDDLE)
 
-footer(s, 10)
+footer(s, 11)
 
 # ---------------------------------------------------------------------------
 out_path = "/Users/asishsingh/Documents/Codebase/agentic-erp-demo/deck/agentic-erp-study.pptx"

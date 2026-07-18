@@ -40,6 +40,24 @@ SAP's raw responses are large enough that a single unfiltered API reply overflow
 
 The agent never saw SAP documentation, only error responses. When those errors were specific ("Property contains not found in type A_BusinessPartnerType") the agent corrected course in one turn. Vague errors produced repeated failing guesses. For API owners preparing for agent traffic, error message quality is no longer a developer nicety, it is the interface.
 
+## Does a smarter model fix it? Three brains, same wall
+
+After the first run set, we repeated all five tasks with a frontier model (GPT-4.1) and a strong open source model (Llama 4 Maverick), same harness, same tools, same logging.
+
+| Task | GPT-4o mini (small) | GPT-4.1 (frontier) | Llama 4 Maverick (open) |
+|---|---|---|---|
+| Find a supplier | success, 11 API calls | success, 1 API call | gave up after 3 calls |
+| List purchase orders | success | success | success |
+| Create a purchase order | blocked, 405 | blocked, 405 | blocked, 405 |
+| Summarize invoices | success | success | success |
+| Product base unit and type | success | success | success |
+
+Two lessons fall out of the comparison.
+
+First, model quality buys efficiency, not new capability. GPT-4.1 found the supplier in a single call where the small model needed eleven, because it knew to query A_Supplier with the right filter on the first try. Llama 4 gave up on the same task. Better models pay less discovery tax, but the tax exists for all of them.
+
+Second, the wall does not care how smart you are. All three models hit the same 405 refusal on the write task. No amount of model intelligence changes a platform policy, which is exactly the point buyers should take away. Capability claims about agents operating enterprise systems are bounded by what the platform permits, not by how good the model is.
+
 ## What this means
 
 1. For anyone planning agent projects on SAP, budget for the discovery problem. Agents will need curated tool definitions or metadata access, not raw OData endpoints and optimism.

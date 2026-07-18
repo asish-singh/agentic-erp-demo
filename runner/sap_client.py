@@ -13,6 +13,7 @@ a real SAP_API_KEY.
 
 from __future__ import annotations
 
+import json
 import os
 import time
 from dataclasses import dataclass
@@ -87,6 +88,13 @@ class SapClient:
 
     def odata_get(self, service: str, entity: str, query_params: dict | None = None) -> SapCallResult:
         url = self._url(service, entity)
+        if isinstance(query_params, str):
+            try:
+                query_params = json.loads(query_params)
+            except json.JSONDecodeError:
+                query_params = dict(
+                    part.split("=", 1) for part in query_params.lstrip("?").split("&") if "=" in part
+                )
         params = dict(query_params or {})
         params.setdefault("$format", "json")
         response = self._request_with_retry("GET", url, headers=self._headers(), params=params)
