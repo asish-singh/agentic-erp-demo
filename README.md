@@ -2,6 +2,8 @@
 
 Can an AI agent actually run ERP business processes? An experiment against SAP's public sandbox APIs, testing whether an AI agent can complete real processes (purchase orders, invoices, employee lookups) end to end, and a study of where it succeeds and where enterprise API design fights it.
 
+**Read the findings in [STUDY.md](STUDY.md).** Everything below is how to reproduce them.
+
 ## What this is
 
 A small Python project that gives an AI agent (running on GitHub's free model tier) a set of realistic SAP business tasks and lets it try to complete them by calling SAP's public sandbox OData APIs. Every model response and every API call is logged in full, so the published findings are traceable back to real runs, not summarized from memory.
