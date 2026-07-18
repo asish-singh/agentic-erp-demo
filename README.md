@@ -2,7 +2,7 @@
 
 Can an AI agent actually run ERP business processes? An experiment against SAP's public sandbox APIs, testing whether an AI agent can complete real processes (purchase orders, invoices, employee lookups) end to end, and a study of where it succeeds and where enterprise API design fights it.
 
-**Read the findings in [STUDY.md](STUDY.md).** Everything below is how to reproduce them.
+**Read the findings in [STUDY.md](STUDY.md)**, or grab the presentation version at [deck/agentic-erp-study.pptx](deck/agentic-erp-study.pptx). Everything below is how to reproduce them.
 
 ## What this is
 
